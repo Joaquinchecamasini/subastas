@@ -144,10 +144,17 @@ async function join(name, msg) {
   myId = auth.currentUser.uid;
   for (let i = 0; i < 60 && !playersLoaded; i++) await sleep(100);
   if (!playersLoaded) { msg.textContent = 'Sin conexión con la base de datos. Revisá las reglas de Firebase.'; return false; }
-  if (players.some(p => p.id !== myId && (p.name || '').toLowerCase() === name.toLowerCase())) { msg.textContent = 'Ese usuario ya está en uso, elegí otro.'; return false; }
-  try { await set(ref(db, 'players/' + myId), { name, t: now() }); }
+  
+  // Reutilizar ID existente si el usuario con este nombre ya está registrado
+  const existingPlayer = players.find(p => (p.name || '').toLowerCase() === name.toLowerCase());
+  if (existingPlayer) {
+    myId = existingPlayer.id;
+  }
+
+  try { await set(ref(db, 'players/' + myId), { name, t: existingPlayer ? existingPlayer.t : now() }); }
   catch (e) { msg.textContent = 'No se pudo entrar: ' + (e.code || e.message); return false; }
-  if (!me()) players.push({ id: myId, name, t: now() });
+  
+  if (!me()) players.push({ id: myId, name, t: existingPlayer ? existingPlayer.t : now() });
   myName = name; try { localStorage.setItem('sub_name', name); } catch (x) {}
   render(); return true;
 }
@@ -269,7 +276,7 @@ function renderLive() {
     <div class="grid"><div>${im.length ? `<img class="main-img" src="${esc(im[imgIdx].url)}" alt="">` : `<div class="main-img" style="display:flex;align-items:center;justify-content:center">Sin foto</div>`}
       <div class="thumbs">${im.map((m, k) => `<img src="${esc(m.url)}" class="${k === imgIdx ? 'on' : ''}" data-k="${k}" alt="">`).join('')}</div></div>
     <div>
-      <div class="mu">${c.mode === 'palabra' ? 'Gana el primero que escriba la palabra · Precio ' + fmt(c.min) : 'Precio mínimo ' + fmt(c.min) + ' · Puja mínima +' + fmt(c.step)}</div>
+      <div class="mu">${c.mode === 'palabra' ? 'Gana el primero que escriba una palabra · Precio ' + fmt(c.min) : 'Precio mínimo ' + fmt(c.min) + ' · Puja mínima +' + fmt(c.step)}</div>
       <div class="mu" style="margin-top:8px">${c.mode === 'palabra' ? 'Ganador' : 'Puja más alta'}</div><div class="price" id="hp"></div><div id="hn" class="mu"></div>
       <div class="timer" id="tm"></div><div class="bar"><i id="tb"></i></div>
       <div id="bidbox"></div><div class="log" id="log"></div>
